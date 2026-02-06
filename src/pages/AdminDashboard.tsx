@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { 
   ExternalLink, 
   FileText, 
@@ -20,11 +22,13 @@ import {
   Hash,
   Sparkles,
   CheckCircle2,
-  TrendingUp
+  TrendingUp,
+  Award,
+  Save
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import type { Project } from "@/types/project";
+import type { Project, Scores } from "@/types/project";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -33,7 +37,21 @@ const AdminDashboard = () => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ totalProjects: 0, teamsWithProjects: 0, projectsWithPdf: 0 });
+  const [savingScores, setSavingScores] = useState(false);
+  const [stats, setStats] = useState({ 
+    totalProjects: 0, 
+    teamsWithProjects: 0, 
+    projectsWithPdf: 0,
+    projectsScored: 0 
+  });
+  
+  // Scoring state
+  const [scores, setScores] = useState<Scores>({
+    innovation: 0,
+    feasibility: 0,
+    uiUx: 0,
+    promptEfficiency: 0,
+  });
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -73,6 +91,57 @@ const AdminDashboard = () => {
       p.email.toLowerCase().includes(search.toLowerCase()) ||
       (p.teamName && p.teamName.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const handleSelectProject = (project: Project) => {
+    setSelected(project);
+    // Load existing scores or set to 0
+    if (project.scores) {
+      setScores(project.scores);
+    } else {
+      setScores({
+        innovation: 0,
+        feasibility: 0,
+        uiUx: 0,
+        promptEfficiency: 0,
+      });
+    }
+  };
+
+  const handleSaveScores = async () => {
+    if (!selected) return;
+
+    setSavingScores(true);
+    try {
+      const result = await adminApi.updateScores(selected.id, scores);
+      
+      // Update local project data
+      setProjects(projects.map(p => 
+        p.id === selected.id 
+          ? { ...p, scores: result.scores, totalScore: result.totalScore }
+          : p
+      ));
+      
+      // Update selected project
+      setSelected({ ...selected, scores: result.scores, totalScore: result.totalScore });
+      
+      toast({
+        title: "Scores saved! 🎉",
+        description: `Total score: ${result.totalScore} / 100`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to save scores",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingScores(false);
+    }
+  };
+
+  const calculateTotal = () => {
+    return scores.innovation + scores.feasibility + scores.uiUx + scores.promptEfficiency;
+  };
 
   if (loading) {
     return (
@@ -183,15 +252,11 @@ const AdminDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
-                  <p className="mt-2 text-3xl font-bold text-primary">
-                    {stats.totalProjects > 0 
-                      ? Math.round((stats.projectsWithPdf / stats.totalProjects) * 100)
-                      : 0}%
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Projects Scored</p>
+                  <p className="mt-2 text-3xl font-bold text-primary">{stats.projectsScored}</p>
                 </div>
                 <div className="rounded-xl bg-primary/10 p-3">
-                  <TrendingUp className="h-6 w-6 text-primary" />
+                  <Award className="h-6 w-6 text-primary" />
                 </div>
               </div>
             </CardContent>
@@ -245,6 +310,9 @@ const AdminDashboard = () => {
                           Features
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Score
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                           Status
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -259,7 +327,7 @@ const AdminDashboard = () => {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.05 }}
-                          onClick={() => setSelected(project)}
+                          onClick={() => handleSelectProject(project)}
                           className="cursor-pointer transition-colors hover:bg-accent/5"
                         >
                           <td className="px-6 py-4">
@@ -299,6 +367,18 @@ const AdminDashboard = () => {
                                 </Badge>
                               )}
                             </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {project.totalScore !== undefined && project.totalScore !== null ? (
+                              <Badge className="bg-primary/10 text-primary font-mono text-base">
+                                <Award className="mr-1 h-3 w-3" />
+                                {project.totalScore}/100
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground">
+                                Not scored
+                              </Badge>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             {project.promptPdfName ? (
@@ -447,6 +527,113 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Scoring Section */}
+                  <div className="rounded-lg border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5 p-6">
+                    <h4 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                      <Award className="h-5 w-5 text-primary" />
+                      Project Scoring
+                      {selected.totalScore !== undefined && selected.totalScore !== null && (
+                        <Badge className="ml-auto bg-primary text-lg">
+                          {selected.totalScore} / 100
+                        </Badge>
+                      )}
+                    </h4>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {/* Innovation */}
+                      <div className="space-y-2">
+                        <Label htmlFor="innovation" className="text-sm font-medium">
+                          1. Innovation (0-25)
+                        </Label>
+                        <Input
+                          id="innovation"
+                          type="number"
+                          min="0"
+                          max="25"
+                          value={scores.innovation}
+                          onChange={(e) => setScores({ ...scores, innovation: Number(e.target.value) })}
+                          className="text-lg font-semibold"
+                        />
+                      </div>
+
+                      {/* Feasibility */}
+                      <div className="space-y-2">
+                        <Label htmlFor="feasibility" className="text-sm font-medium">
+                          2. Feasibility (0-25)
+                        </Label>
+                        <Input
+                          id="feasibility"
+                          type="number"
+                          min="0"
+                          max="25"
+                          value={scores.feasibility}
+                          onChange={(e) => setScores({ ...scores, feasibility: Number(e.target.value) })}
+                          className="text-lg font-semibold"
+                        />
+                      </div>
+
+                      {/* UI/UX */}
+                      <div className="space-y-2">
+                        <Label htmlFor="uiUx" className="text-sm font-medium">
+                          3. UI/UX (0-25)
+                        </Label>
+                        <Input
+                          id="uiUx"
+                          type="number"
+                          min="0"
+                          max="25"
+                          value={scores.uiUx}
+                          onChange={(e) => setScores({ ...scores, uiUx: Number(e.target.value) })}
+                          className="text-lg font-semibold"
+                        />
+                      </div>
+
+                      {/* Prompt Efficiency */}
+                      <div className="space-y-2">
+                        <Label htmlFor="promptEfficiency" className="text-sm font-medium">
+                          4. Prompt Efficiency (0-25)
+                        </Label>
+                        <Input
+                          id="promptEfficiency"
+                          type="number"
+                          min="0"
+                          max="25"
+                          value={scores.promptEfficiency}
+                          onChange={(e) => setScores({ ...scores, promptEfficiency: Number(e.target.value) })}
+                          className="text-lg font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Total Score Display */}
+                    <div className="mt-4 flex items-center justify-between rounded-lg bg-primary/10 p-4">
+                      <span className="text-sm font-semibold">Total Score:</span>
+                      <span className="text-2xl font-bold text-primary">
+                        {calculateTotal()} / 100
+                      </span>
+                    </div>
+
+                    {/* Save Button */}
+                    <Button
+                      onClick={handleSaveScores}
+                      disabled={savingScores}
+                      className="mt-4 w-full"
+                      size="lg"
+                    >
+                      {savingScores ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Scores
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             )}

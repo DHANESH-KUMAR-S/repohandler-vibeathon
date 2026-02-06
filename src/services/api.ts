@@ -163,7 +163,20 @@ export const adminApi = {
     totalProjects: number;
     teamsWithProjects: number;
     projectsWithPdf: number;
+    projectsScored: number;
   }> => {
     return apiCall("/api/admin/stats");
+  },
+
+  updateScores: async (projectId: string, scores: {
+    innovation: number;
+    feasibility: number;
+    uiUx: number;
+    promptEfficiency: number;
+  }): Promise<{ message: string; scores: any; totalScore: number }> => {
+    return apiCall(`/api/admin/projects/${projectId}/scores`, {
+      method: "PUT",
+      body: JSON.stringify(scores),
+    });
   },
 };

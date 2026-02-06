@@ -8,6 +8,13 @@ export interface TeamMember {
   name: string;
 }
 
+export interface Scores {
+  innovation: number;
+  feasibility: number;
+  uiUx: number;
+  promptEfficiency: number;
+}
+
 export interface ProjectBase {
   teamName: string;
   name: string;
@@ -33,6 +40,8 @@ export interface Project {
   teamMembers?: TeamMember[];  // Optional for backward compatibility
   promptPdfName: string | null;
   promptPdfUrl?: string | null;
+  scores?: Scores | null;  // Scoring by admin
+  totalScore?: number;  // Calculated total
   submittedAt: string;
 }
 
@@ -40,3 +49,4 @@ export interface TeamSession {
   teamId: string;
   email: string;
 }
+

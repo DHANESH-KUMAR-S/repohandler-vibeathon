@@ -10,6 +10,12 @@ class TeamMember(BaseModel):
     id: str
     name: str
 
+class Scores(BaseModel):
+    innovation: float
+    feasibility: float
+    uiUx: float
+    promptEfficiency: float
+
 class ProjectBase(BaseModel):
     teamName: str
     name: str
@@ -36,10 +42,18 @@ class Project(BaseModel):
     teamMembers: Optional[List[TeamMember]] = []  # Optional for backward compatibility
     promptPdfName: Optional[str] = None
     promptPdfUrl: Optional[str] = None
+    scores: Optional[Scores] = None  # Scoring by admin
+    totalScore: Optional[float] = None  # Calculated total
     submittedAt: str
     
     class Config:
         from_attributes = True
+
+class ScoresUpdate(BaseModel):
+    innovation: float
+    feasibility: float
+    uiUx: float
+    promptEfficiency: float
 
 class TeamSession(BaseModel):
     teamId: str
