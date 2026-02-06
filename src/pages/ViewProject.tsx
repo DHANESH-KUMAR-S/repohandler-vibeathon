@@ -5,9 +5,10 @@ import { projectsApi } from "@/services/api";
 import Header from "@/components/Header";
 import ProjectCard from "@/components/ProjectCard";
 import FeatureList from "@/components/FeatureList";
+import TeamMemberList from "@/components/TeamMemberList";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, ExternalLink, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, Loader2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@/types/project";
 
@@ -94,6 +95,9 @@ const ViewProject = () => {
               <>
                 <DialogHeader>
                   <DialogTitle>{selected.name}</DialogTitle>
+                  {selected.teamName && (
+                    <p className="text-sm text-muted-foreground">{selected.teamName}</p>
+                  )}
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
                   <p className="text-sm text-muted-foreground">{selected.description}</p>
@@ -124,6 +128,16 @@ const ViewProject = () => {
                     <h4 className="mb-2 text-sm font-semibold">Key Features</h4>
                     <FeatureList features={selected.features} onChange={() => {}} readOnly />
                   </div>
+
+                  {selected.teamMembers && selected.teamMembers.length > 0 && (
+                    <div>
+                      <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                        <Users className="h-4 w-4" />
+                        Potential Users
+                      </h4>
+                      <TeamMemberList members={selected.teamMembers} onChange={() => {}} readOnly />
+                    </div>
+                  )}
 
                   <p className="text-xs text-muted-foreground">
                     Submitted {new Date(selected.submittedAt).toLocaleString()}

@@ -4,6 +4,7 @@ import { useProjectContext } from "@/context/ProjectContext";
 import { projectsApi } from "@/services/api";
 import Header from "@/components/Header";
 import FeatureList from "@/components/FeatureList";
+import TeamMemberList from "@/components/TeamMemberList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, ArrowLeft, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Feature } from "@/types/project";
+import type { Feature, TeamMember } from "@/types/project";
 
 const AddProject = () => {
   const navigate = useNavigate();
@@ -22,12 +23,14 @@ const AddProject = () => {
 
   const existing = editId ? projects.find((p) => p.id === editId) : null;
 
+  const [teamName, setTeamName] = useState(existing?.teamName ?? "");
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [githubUrl, setGithubUrl] = useState(existing?.githubUrl ?? "");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfName, setPdfName] = useState<string | null>(existing?.promptPdfName ?? null);
   const [features, setFeatures] = useState<Feature[]>(existing?.features ?? []);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(existing?.teamMembers ?? []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -40,11 +43,13 @@ const AddProject = () => {
 
   const validate = () => {
     const e: Record<string, string> = {};
+    if (!teamName.trim()) e.teamName = "Team name is required";
     if (!name.trim()) e.name = "Project name is required";
     if (!description.trim()) e.description = "Description is required";
     if (!/^https?:\/\/(www\.)?github\.com\/.+\/.+/.test(githubUrl))
       e.githubUrl = "Enter a valid GitHub repository URL";
     if (features.length === 0) e.features = "Add at least one feature";
+    if (teamMembers.length === 0) e.teamMembers = "Add at least one potential user";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -56,10 +61,12 @@ const AddProject = () => {
     setLoading(true);
     try {
       const projectData = {
+        teamName: teamName.trim(),
         name: name.trim(),
         description: description.trim(),
         githubUrl: githubUrl.trim(),
         features,
+        teamMembers,
       };
 
       let project;
@@ -162,6 +169,17 @@ const AddProject = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5">
+                <Label htmlFor="teamName">Team Name</Label>
+                <Input 
+                  id="teamName" 
+                  value={teamName} 
+                  onChange={(e) => setTeamName(e.target.value)} 
+                  placeholder="Team Awesome" 
+                />
+                {errors.teamName && <p className="text-xs text-destructive">{errors.teamName}</p>}
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="name">Project Name</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="My Awesome Project" />
                 {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
@@ -203,6 +221,12 @@ const AddProject = () => {
                 <Label>Key Features (drag to reorder by priority)</Label>
                 <FeatureList features={features} onChange={setFeatures} />
                 {errors.features && <p className="text-xs text-destructive">{errors.features}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Potential Users of your product (drag to reorder)</Label>
+                <TeamMemberList members={teamMembers} onChange={setTeamMembers} />
+                {errors.teamMembers && <p className="text-xs text-destructive">{errors.teamMembers}</p>}
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>

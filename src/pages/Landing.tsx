@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Terminal, ArrowRight, Loader2, Sparkles, Users, Key, Mail } from "lucide-react";
+import { Terminal, ArrowRight, Loader2, Sparkles, Users, Key, Mail, Copy, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type ViewMode = "choice" | "generate" | "login";
 
@@ -23,11 +24,31 @@ const Landing = () => {
   // Generate Team ID form
   const [leaderEmail, setLeaderEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [existingTeamId, setExistingTeamId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
   // Login form
   const [teamId, setTeamId] = useState("");
   const [email, setEmail] = useState("");
   const [errors, setErrors] = useState<{ teamId?: string; email?: string }>({});
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Team ID copied to clipboard",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the Team ID manually",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleGenerateTeam = async (ev: React.FormEvent) => {
     ev.preventDefault();
@@ -39,6 +60,7 @@ const Landing = () => {
 
     setLoading(true);
     setEmailError("");
+    setExistingTeamId(null);
     
     try {
       const result = await authApi.generateTeam(leaderEmail);
@@ -57,13 +79,59 @@ const Landing = () => {
       
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (error: any) {
-      toast({
-        title: "Failed to create team",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
+      console.log("Error caught:", error); // Debug log
+      console.log("Error detail:", error.detail); // Debug log
+      
+      // Check if it's a 409 conflict (team already exists)
+      if (error.status === 409) {
+        // The error.detail should contain the team info
+        const detail = error.detail || error.message;
+        
+        if (detail && typeof detail === 'object' && detail.teamId) {
+          setExistingTeamId(detail.teamId);
+          setEmailError("");
+        } else if (typeof detail === 'string') {
+          // Try to parse if it's a JSON string
+          try {
+            const parsed = JSON.parse(detail);
+            if (parsed.teamId) {
+              setExistingTeamId(parsed.teamId);
+              setEmailError("");
+            }
+          } catch {
+            toast({
+              title: "Team already exists",
+              description: "This email already has a Team ID. Please check your email or contact support.",
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Team already exists",
+            description: "This email already has a Team ID. Please check your email or contact support.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Failed to create team",
+          description: error.message?.message || error.message || "Please try again",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUseExistingTeam = () => {
+    if (existingTeamId) {
+      setSession({ teamId: existingTeamId, email: leaderEmail });
+      toast({
+        title: "Welcome back! 👋",
+        description: `Using existing Team ID: ${existingTeamId}`,
+      });
+      navigate("/dashboard");
     }
   };
 
@@ -144,7 +212,7 @@ const Landing = () => {
             transition={{ type: "spring", stiffness: 400 }}
           >
             <Terminal className="h-4 w-4 text-primary" />
-            Vibeathon 2025
+            Vibeathon 2026
             <Sparkles className="h-4 w-4 text-primary" />
           </motion.div>
           
@@ -276,6 +344,49 @@ const Landing = () => {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleGenerateTeam} className="space-y-4">
+                    {existingTeamId && (
+                      <Alert className="border-primary/50 bg-primary/5">
+                        <AlertCircle className="h-4 w-4 text-primary" />
+                        <AlertDescription className="space-y-3">
+                          <p className="text-sm font-medium">Team ID Already Exists!</p>
+                          <p className="text-xs text-muted-foreground">
+                            This email already has a Team ID. Use it to login:
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 rounded bg-secondary px-3 py-2 text-sm font-mono font-semibold">
+                              {existingTeamId}
+                            </code>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => copyToClipboard(existingTeamId)}
+                              className="shrink-0"
+                            >
+                              {copied ? (
+                                <>
+                                  <Check className="h-4 w-4" />
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4" />
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full"
+                            onClick={handleUseExistingTeam}
+                          >
+                            Continue with this Team ID
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     <div className="space-y-2">
                       <Label htmlFor="leaderEmail" className="flex items-center gap-2">
                         <Mail className="h-4 w-4" />
@@ -285,7 +396,10 @@ const Landing = () => {
                         id="leaderEmail"
                         type="email"
                         value={leaderEmail}
-                        onChange={(e) => setLeaderEmail(e.target.value)}
+                        onChange={(e) => {
+                          setLeaderEmail(e.target.value);
+                          setExistingTeamId(null); // Clear existing team alert when email changes
+                        }}
                         placeholder="leader@college.edu"
                         className="transition-all focus:ring-2 focus:ring-primary"
                         disabled={loading}
@@ -297,7 +411,11 @@ const Landing = () => {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setViewMode("choice")}
+                        onClick={() => {
+                          setViewMode("choice");
+                          setExistingTeamId(null);
+                          setLeaderEmail("");
+                        }}
                         disabled={loading}
                         className="flex-1"
                       >
@@ -307,7 +425,7 @@ const Landing = () => {
                         {loading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating...
+                            Checking...
                           </>
                         ) : (
                           <>

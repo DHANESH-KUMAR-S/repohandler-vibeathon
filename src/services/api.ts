@@ -44,6 +44,15 @@ async function apiCall<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Unknown error" }));
+    
+    // For 409 Conflict, the detail contains the team info
+    if (response.status === 409) {
+      const apiError = new ApiError(response.status, error.detail);
+      // Attach the full detail object for access in catch blocks
+      (apiError as any).detail = error.detail;
+      throw apiError;
+    }
+    
     throw new ApiError(response.status, error.detail || "Request failed");
   }
 

@@ -6,11 +6,17 @@ class Feature(BaseModel):
     id: str
     text: str
 
+class TeamMember(BaseModel):
+    id: str
+    name: str
+
 class ProjectBase(BaseModel):
+    teamName: str
     name: str
     description: str
     githubUrl: HttpUrl
     features: List[Feature]
+    teamMembers: List[TeamMember]
 
 class ProjectCreate(ProjectBase):
     pass
@@ -18,10 +24,16 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(ProjectBase):
     pass
 
-class Project(ProjectBase):
+class Project(BaseModel):
     id: str
     teamId: str
     email: EmailStr
+    teamName: Optional[str] = ""  # Optional for backward compatibility
+    name: str
+    description: str
+    githubUrl: str
+    features: List[Feature]
+    teamMembers: Optional[List[TeamMember]] = []  # Optional for backward compatibility
     promptPdfName: Optional[str] = None
     promptPdfUrl: Optional[str] = None
     submittedAt: str
